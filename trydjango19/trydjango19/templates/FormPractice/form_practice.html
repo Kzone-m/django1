@@ -1,0 +1,71 @@
+
+<div class="form-wrapper">
+    <form action="" method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <input type="submit" value="{{ title }}" id="id_submit">
+    </form>
+</div>
+
+<style>
+    /* 各ベンダープレフィックスが取れた標準版！！(http://caniuse.com/#search=placeholder-shown) */
+    :placeholder-shown {
+        color: white;
+    }
+
+    /* Google Chrome, Safari, Opera 15+, Android, iOS */
+    ::-webkit-input-placeholder {
+        color: white;
+    }
+
+    /* Firefox 18- */
+    :-moz-placeholder {
+        color: white;
+        opacity: 1;
+    }
+
+    /* Firefox 19+ */
+    ::-moz-placeholder {
+        color: white;
+        opacity: 1;
+    }
+
+    /* IE 10+ */
+    :-ms-input-placeholder {
+        color: white;
+    }
+
+    label {
+        display: none;
+    }
+
+    .form-wrapper{
+        width: 80%;
+        margin: 0 auto;
+    }
+
+    #id_username, #id_password, #id_email, #id_email2, #id_submit{
+        margin: 0 auto;
+        display: block;
+        width: 50%;
+        height: 30px;
+        background-color: orange;
+        border: none;
+        color: white;
+    }
+
+    #id_submit{
+        width: 30%;
+        cursor: pointer;
+        border-radius: 10px;
+        opacity: 0.7;
+    }
+    #id_submit:hover{
+        opacity: 1.0;
+    }
+
+    .errorlist{
+
+    }
+
+</style>

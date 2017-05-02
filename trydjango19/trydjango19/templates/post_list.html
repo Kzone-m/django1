@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    {{ block.super }} | {{ title }}
+{% endblock %}
+
+{% block additionalCss %}
+    <style>
+        .draft{
+            color: red;
+        }
+        .top-image{
+            width: 95%;
+            height: 50%;
+        }
+        .font{
+            font-family: 'Satisfy', cursive;
+        }
+        .see-more{
+            margin-top: 10px;
+        }
+
+    </style>
+{% endblock %}
+
+
+{% block body%}
+    <div class="col-sm-6 col-sm-offset-3">
+        <div class="row">
+
+            {% for post in posts %}
+                <div class="col-sm-12">
+                    <div class="thumbnail">
+                        <div class="caption post-detail-item">
+
+                            <h3>
+                                <span class="font">Title -></span>
+                                <a href="{% url 'posts:detail' id=post.id %}">{{ post.title }}</a>
+                            </h3>
+
+                            <p class="info">
+                                posted by <strong>{{ post.user }}</strong> / {{ post.publish }}
+                            </p>
+                            <hr>
+
+                            {{ post.get_markdown }}
+
+                            {% if post.image %}
+                                <img src="{{ post.image.url }}" class="img-responsive top-image"/>
+                            {% endif %}
+
+                            <p class="see-more"><a href="{{ post.get_absolute_url }}"> See More</a></p>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+
+            <div class="pagination">
+                <span class="step-links">
+                    {% if posts.has_previous %}
+                        <a href="?page={{ contacts.previous_page_number }}">previous</a>
+                    {% endif %}
+
+                    <span class="current">
+                        Page {{ posts.number }} of {{ posts.paginator.num_pages }}.
+                    </span>
+
+                    {% if posts.has_next %}
+                        <a href="?page={{ posts.next_page_number }}">next</a>
+                    {% endif %}
+                </span>
+            </div>
+
+        </div>
+    </div>
+{% endblock%}

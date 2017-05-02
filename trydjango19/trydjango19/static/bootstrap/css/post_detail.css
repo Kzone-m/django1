@@ -1,0 +1,35 @@
+.share-links a{
+    display: block;
+    margin: 10px auto;
+    text-align: center;
+    width: 25%;
+    float: left;
+    background-color: skyblue;
+    color: white
+}
+.font{
+    font-family: 'Satisfy', cursive;
+}
+
+.info{
+    font-size: 18px;
+    text-align: center;
+}
+
+.read-time{
+    text-align: right;
+}
+
+.util{
+    margin-bottom: 20px;
+    text-align: right;
+}
+
+.fb-comments{
+    margin: 0 auto;
+    text-align: center;
+}
+
+.comment-reply{
+    display: none;
+}

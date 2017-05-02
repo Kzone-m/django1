@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+{% load urlify %}
+{% load crispy_forms_tags %}
+
+{% block title %}
+    {{ block.super }} | {{ title }}
+{% endblock %}
+
+{% block additionalCss %}
+    {% load staticfiles %}
+    <link rel="stylesheet" type="text/css" href="{% static 'bootstrap/css/post_detail.css' %}">
+{% endblock %}
+
+
+{% block body%}
+    <div class='col-sm-6 col-sm-offset-3'>
+
+        <!-- Main Contents -->
+        <div>
+            {% if post.image %}
+                <img src="{{ post.image.url }}" class="img-responsive"/>
+            {% endif %}
+            <h1 style="text-align: center;">
+                <span class="font">Title</span>
+                <small>:</small> {{ post.title }}
+            </h1>
+            <p class="info">
+                posted by <strong>{{ post.user }}</strong> / {{ post.publish }}
+            </p>
+            <p class="read-time">
+                Read time: expecting {{ post.read_time|time:'i' }} minutes
+            </p>
+        </div>
+
+        <!-- Login User Operations -->
+        <div class="util">
+            <a href="{% url 'posts:update' id=post.id %}" class="btn btn-success">
+                <span class="glyphicon glyphicon-edit" aria-hidden="true"></span>&nbsp;
+                Edit
+            </a>
+            <a href="{% url 'posts:delete' id=post.id %}" class="btn btn-danger">
+                <span class="glyphicon glyphicon-move" aria-hidden="true"></span>&nbsp;
+                Delete
+            </a>
+        </div>
+
+
+        <!-- Markdown -->
+        <div class="post-detail-item">{{ post.get_markdown }}</div>
+        <hr>
+
+
+        <!-- Comment -->
+        <!-- {# {% for comment in post.comments %} {{ comment.content }} {% endfor  %} #} -->
+        <div class="comment">
+            <!--{# {{ post.comment_set.all }} #}-->
+
+            <p class="lead">Comments</p>
+
+            {% if request.user.is_authenticated %}
+                <form action="." method="post">
+                    {% csrf_token %}
+                    {{ comment_form|crispy }}
+                    <input type="submit" value="Post comment" class="btn btn-default btn-submit">
+                </form>
+            {% else %}
+                <p> You must login to comment </p>
+            {% endif %}
+
+            <hr>
+            <p> {{ comments.count }} posted so far</p>
+
+            <!-- This is a loop for parent comment -->
+            {% for comment in comments %}
+                <blockquote>
+                    <p>{{ comment.content }}</p>
+                    <footer>
+                        posted by {{ comment.user }} / {{ comment.timestamp|timesince }} ago
+                        {% if comment.children.count > 0%}
+                            | {{ comment.children.count }} Comment |
+                        {% else %}
+                            |
+                        {% endif %}
+
+                        <a href="#" class="comment-reply-btn">Reply</a> |
+                        <a href="{{ comment.get_absolute_url }}">Thread</a> |
+                        <a href="{% url 'comments:delete' id=comment.id %}">Delete</a>
+                    </footer>
+
+                    <div class="comment-reply">
+                        <!-- This is a loop for children comment -->
+                        {% for child_comment in comment.children %}
+                            <blockquote>
+                                <p> {{ child_comment.content }}</p>
+                                <footer>posted by {{ child_comment.user }} / {{ child_comment.timestamp|timesince }} ago</footer>
+                            </blockquote>
+                        {% endfor %}
+
+                        {% if request.user.is_authenticated %}
+                        <!-- This is a comment form for replying parent comment -->
+                        <form action="." method="post">
+                            {% csrf_token %}
+                            {{ comment_form|crispy }}
+                            <input type="hidden" name="parent_id" value="{{ comment.id }}">
+                            <input type="submit" value="Reply" class="btn btn-default">
+                        </form>
+                        {% else %}
+                             <p> You must login to comment </p>
+                        {% endif %}
+
+                    </div>
+                </blockquote>
+            {% endfor %}
+            <hr>
+        </div>
+
+
+        <!-- Facebook Like Button -->
+        <div class="fb-like"
+             data-href="{{ request.build_absolute_uri }}"
+             data-layout="button_count"
+             data-action="like"
+             data-size="small"
+             data-show-faces="false"
+             data-share="true">
+        </div>
+
+
+        <!-- Facebook Comment Plugin -->
+        <div class="fb-comments"
+             data-href="{{ request.build_absolute_uri }}"
+             data-numposts="5"
+             data-width="100%">
+        </div>
+
+    </div>
+{% endblock%}
+
