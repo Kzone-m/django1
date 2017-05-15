@@ -1,16 +1,62 @@
-import os, lxml.html, cssselect, re
+import os, lxml.html, cssselect, re, time, urllib
 from pymongo import MongoClient
 from urllib.parse import urljoin
 from urllib.request import urlopen
+from reppy.cache import RobotsCache
+
+def confirm_robots_txt(target_url, max_capacity):
+    '''confirm that target url is allowed to scrape
+
+    :type target_url: str
+    :param target_url: url which agent wanna parse
+    :type max_capacity: int
+    :param max_capacity: url which agent wanna parse
+    :rtype: bool
+    :return: weather it is possible to scrape
+    '''
+    robots = RobotsCache(max_capacity)
+    return robots.allowed(target_url, 'python program')
+
+
+# http://stackoverflow.com/questions/22216076/unicodedecodeerror-utf8-codec-cant-decode-byte-0xa5-in-position-0-invalid-s
+# http://stackoverflow.com/questions/16627227/http-error-403-in-python-3-web-scraping
+def prepare_parsing_url(url):
+    '''access this url, decode it as html contents, and pass them to parse_url function
+
+    :type url: str
+    :param url: target url parsed by lxml
+    :rtype: lxml.html.HtmlElement or NoneType
+    :return: HtmlElement containing url's html info
+    '''
+
+    file_name = 'scraping_sample.html'
+    try:
+        f = urlopen(url)
+        encoding = f.info().get_content_charset(failobj='utf-8')
+        text = f.read().decode(encoding)
+        if not os.path.exists(file_name):
+            with open(file_name, 'w') as f:
+                f.write(text)
+        if os.path.exists(file_name):
+            html = parse_url(file_name)
+            os.remove(file_name)
+        else:
+            html = None
+    except (UnicodeDecodeError, urllib.error.HTTPError):
+        html = None
+    return html
+
 
 def parse_url(url):
     '''parse url as html
+
     :type url: str
     :param url: target url parsed by lxml
     :rtype: lxml.html.HtmlElement or NoneType
     :return: HtmlElement containing url's html info
     '''
     try:
+        time.sleep(2)
         tree = lxml.html.parse(url)
         html = tree.getroot()
     except OSError:
@@ -20,6 +66,7 @@ def parse_url(url):
 
 def split_html_tags_into_words(html, tag_name, words_lst):
     ''' based on tag name, extract text, split it into a word, and add them to words lst.
+
     :type html: lxml.html.HtmlElement
     :param html: containing its html dom info
     :type tag_name: str
@@ -34,6 +81,7 @@ def split_html_tags_into_words(html, tag_name, words_lst):
 
 def add_page_to_index(index, url, html):
     '''get keywords' list and pass it to add_to_index function
+
     :type index: dict
     :param index: container which stores key word and corresponding url
     :type url: str
@@ -55,6 +103,7 @@ def add_page_to_index(index, url, html):
 
 def add_to_index(index, keyword, url):
     '''add keyword and corresponding url to index dict
+
     :type index: dict
     :param index: container which stores key word and corresponding url
     :type keyword: str
@@ -71,6 +120,7 @@ def add_to_index(index, keyword, url):
 
 def union_urls(base_url, urls, new_urls):
     '''avoid making url duplicate before saving urls into db
+
     :type base_url: str
     :param base_url: hepling creating absolute url
     :type urls: list
@@ -88,6 +138,7 @@ def union_urls(base_url, urls, new_urls):
 
 def save(urls):
     '''connect Mongo DB and save each url
+
     :type urls: list
     :param urls: crawled urls
     :rtype pymongo.collection.Collection
@@ -102,8 +153,9 @@ def save(urls):
     return collection
 
 
-def scraping(seed_url, max_depth):
+def scraping(seed_url, max_depth, max_capacity):
     '''parsing seed url, collecting urls related to seed url, and saving collected urls into DB
+
     :type seed_url: str
     :param seed_url: first url starting scraping
     :type max_depth: int
@@ -117,20 +169,24 @@ def scraping(seed_url, max_depth):
     depth = 0    # showing the depth when scraping
     index = {}    # {keyword, [url1, url2], keyword, [url1, url2], ...}
     graph = {}    # {<url>, [list of pages it links to]}
+    html = None    # html's dom info
     while crawl_lst and depth <= max_depth:
         base_url = crawl_lst.pop()
-        html = parse_url(base_url)
-        if not html:
+        if confirm_robots_txt(base_url, max_capacity):
+            html = prepare_parsing_url(base_url)
+            if not html:    # if html is NontType
+                continue
+            if base_url not in crawled_lst:
+                outlinks = html.cssselect('a')   # select all a-tags projected to another html
+                add_page_to_index(index, base_url, html)
+                graph[base_url] = [urljoin(base_url, outlink.get('href')) for outlink in outlinks]
+                union_urls(base_url, next_depth, outlinks)
+                crawled_lst.append(base_url)
+            if not crawl_lst:
+                crawl_lst, next_depth = next_depth, []
+                depth = depth + 1
+        else:
             continue
-        if base_url not in crawled_lst:
-            outlinks = html.cssselect('a')   # select all a-tags projected to another html
-            add_page_to_index(index, base_url, html)
-            graph[base_url] = [urljoin(base_url, outlink.get('href')) for outlink in outlinks]
-            union_urls(base_url, next_depth, outlinks)
-            crawled_lst.append(base_url)
-        if not crawl_lst:
-            crawl_lst, next_depth = next_depth, []
-            depth = depth + 1
     return save(crawled_lst), index, graph
 
 
@@ -155,6 +211,7 @@ def compute_ranks(graph):
 
 def lookup(index, keyword):
     '''search coressponding urls based on passed keyword
+
     :type index: dict
     :param index: container which stores key word and corresponding url
     :type keyword: str
@@ -170,6 +227,7 @@ def lookup(index, keyword):
 
 def sort_ranks_by_descending(ranks, index, keyword):
     '''return descending order of rank value and corresponding url
+
     :type ranks: dict
     :param ranks: dict containing url as a key and rank value
     :type index: dict
@@ -192,6 +250,7 @@ def sort_ranks_by_descending(ranks, index, keyword):
 
 def print_urls(collection):
     '''print urls saved in Mongo DB
+
     :type collection: pymongo.collection.Collection
     :param collection: collection of urls saved into db
     :rtype: None
@@ -200,7 +259,18 @@ def print_urls(collection):
     for url in collection.find().sort('_id'):
         print(url['url'])
 
-collection, index, graph = scraping(input('enter seed url: '), int(input('enter depth: ')))
+'''
+dir_name = input('enter folder name at temporal : ')
+current_path = os.path.abspath('')
+target_path = current_path + '/' + dir_name
+if not os.path.exists(dir_name):
+    os.mkdir(dir_name)
+if current_path != target_path:
+    os.chdir(dir_name)
+    current_path = target_path
+'''
+
+collection, index, graph = scraping(input('enter seed url: '), int(input('enter depth: ')), int(input('decide capacity: ')))
 ranks = compute_ranks(graph)
-sorted_ranks = sort_ranks_by_descending(ranks, index, keyword = input('enter what you wanna search'))
+sorted_ranks = sort_ranks_by_descending(ranks, index, keyword = input('enter what you wanna search: '))
 print_urls(collection)
