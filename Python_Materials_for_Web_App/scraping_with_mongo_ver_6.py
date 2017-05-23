@@ -77,7 +77,7 @@ def split_html_tags_into_words(html, tag_name, words_lst):
             words_lst += tag_content.text.split()
 
 
-def add_page_to_index(index, url, html):
+def add_page_to_index(index, url, html, target_tag_lst):
     '''get keywords' list and pass it to add_to_index function
 
     :type index: dict
@@ -88,7 +88,6 @@ def add_page_to_index(index, url, html):
     :param html: containing its html dom info
     '''
     words_lst = []
-    target_tag_lst = ['h1', 'p', 'a']
     for tag_name in target_tag_lst:
         split_html_tags_into_words(html, tag_name, words_lst)
     for word in words_lst:
@@ -155,13 +154,13 @@ def save(urls):
     client = MongoClient('localhost', 27017)    # connect mongo db
     db = client.scraping_test_db    # creating db
     collection = db.urls    # creating collection
-    collection.delete_many({ })    # deleating info before saving in case
+    collection.delete_many({ })    # deleating info before saving if you wanna reset db
     for url in urls:
         collection.insert_one({'url': url})    # insert url into db
     return collection
 
 
-def scraping(seed_url, max_depth, max_capacity):
+def scraping(seed_url, max_depth, max_capacity, target_tag_lst):
     '''parsing seed url, collecting urls related to seed url, and saving collected urls into DB
 
     :type seed_url: str
@@ -186,7 +185,7 @@ def scraping(seed_url, max_depth, max_capacity):
                 continue
             if base_url not in crawled_lst:
                 outlinks = html.cssselect('a')   # select all a-tags projected to another html
-                add_page_to_index(index, base_url, html)
+                add_page_to_index(index, base_url, html, target_tag_lst)
                 graph[base_url] = [urljoin(base_url, outlink.get('href')) for outlink in outlinks]
                 union_urls(base_url, next_depth, outlinks)
                 crawled_lst.append(base_url)
@@ -195,7 +194,7 @@ def scraping(seed_url, max_depth, max_capacity):
                 depth = depth + 1
         else:
             continue
-    return save(crawled_lst), index, graph
+    return save(crawled_lst), index, graph, crawled_lst
 
 
 def compute_ranks(graph):
@@ -268,7 +267,15 @@ def print_urls(collection):
         print(url['url'])
 
 
-collection, index, graph = scraping(input('enter seed url: '), int(input('enter depth: ')), int(input('decide capacity: ')))
+n = int(input('enter how many tags you wanna parse per page: '))
+taeget_tag_lst = []
+for _ in range(n):
+    tmp = input('what tag you wanna parse: ')
+    taeget_tag_lst.append(tmp)
+
+# target_tag_lst = ['h1', 'p', 'a']
+
+collection, index, graph, crawled_lst = scraping(input('enter seed url: '), int(input('enter depth: ')), int(input('decide capacity: ')), taeget_tag_lst)
 ranks = compute_ranks(graph)
 print('####################')
 print('########ranks#######')
